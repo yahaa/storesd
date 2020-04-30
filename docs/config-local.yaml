@@ -1,0 +1,11 @@
+outputPath: /tmp
+srvAddr: :8080
+syncTargets:
+  - kubeConfigPath: ~/.kube/config
+    cluster: cluster-qa
+    namespace: monitoring
+    services:
+      - service: thanos-store-gateway
+        portName: grpc
+      - service: netstat-exporter
+        portName: http

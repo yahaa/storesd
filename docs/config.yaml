@@ -1,0 +1,9 @@
+outputPath: /etc/sd
+srvAddr: :8081
+syncTargets:
+  - kubeConfigPath: /etc/kube/config-qa
+    cluster: cluster-qa
+    namespace: monitoring
+    services:
+    - service: thanos-store-gateway
+      portName: grpc

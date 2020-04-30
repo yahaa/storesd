@@ -16,7 +16,7 @@ syncTargets:
   - kubeConfigPath: /etc/kube/config-qa
     cluster: cluster-qa
     namespace: monitoring
-	services: 
+    services: 
     - service: thanos-store-gateway
       portName: grpc
 ```

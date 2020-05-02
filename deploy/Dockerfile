@@ -1,5 +1,5 @@
 FROM ubuntu:16.04
-MAINTAINER yuanzihua@qutoutiao.net
+MAINTAINER yuanzihua0@gmail.com
 
 COPY bin/storesd /usr/local/bin
 

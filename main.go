@@ -29,6 +29,32 @@ var (
 	cfgPath string
 )
 
+// ServiceEndpoints todo
+type ServiceEndpoints struct {
+	Targets []string `json:"targets"`
+}
+
+// Config config
+type Config struct {
+	OutputPath  string       `json:"outputPath"`
+	SrvAddr     string       `json:"srvAddr"`
+	SyncTargets []SyncTarget `json:"syncTargets"`
+}
+
+// ServicePort service port pair
+type ServicePort struct {
+	Service  string `json:"service"`
+	PortName string `json:"portName"`
+}
+
+// SyncTarget sync target
+type SyncTarget struct {
+	KubeConfigPath string        `json:"kubeConfigPath"`
+	Cluster        string        `json:"cluster"`
+	Namespace      string        `json:"namespace"`
+	Services       []ServicePort `json:"services"`
+}
+
 func init() {
 	flagSet := flag.CommandLine
 	klog.InitFlags(flagSet)
@@ -58,12 +84,23 @@ func initConfig() error {
 	return nil
 }
 
-func serve(srv *http.Server) func() error {
+func serve(ctx context.Context, srv *http.Server) func() error {
 	return func() error {
-		klog.Infof("start http server listen on %s", srv.Addr)
-		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
-			return err
+		go func() {
+			klog.Infof("start http server listen on %s", srv.Addr)
+			if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+				return
+			}
+		}()
+
+		<-ctx.Done()
+
+		if err := srv.Shutdown(ctx); err != nil {
+			return fmt.Errorf("server shutdown err: %w", err)
 		}
+
+		time.Sleep(3)
+		klog.Info("stop server successful.")
 		return nil
 	}
 }
@@ -133,7 +170,7 @@ func syncService(ctx context.Context) {
 				ts, err := doSync(st)
 				if err != nil {
 					klog.Errorf("do sync %s/%s/%v err: %v", st.Cluster, st.Namespace, st.Services, err)
-					break
+					continue
 				}
 
 				targets = append(targets, ts...)
@@ -206,12 +243,11 @@ func Main() int {
 	)
 
 	route.Use(gin.Recovery())
-	route.GET("/ping", ok)
+	route.GET("/ping", func(_ *gin.Context) {})
 
 	wg, ctx := errgroup.WithContext(ctx)
 
-	wg.Go(serve(srv))
-
+	wg.Go(serve(ctx, srv))
 	wg.Go(run(ctx))
 
 	signal.Notify(term, os.Interrupt, syscall.SIGTERM)
@@ -222,22 +258,14 @@ func Main() int {
 	case <-ctx.Done():
 	}
 
-	if err := srv.Shutdown(ctx); err != nil {
-		klog.Error("server shutdown err", err)
-		return 1
-	}
-
 	cancel()
+
 	if err := wg.Wait(); err != nil {
 		klog.Error("unhandled error received. Exiting...", err)
 		return 1
 	}
 
 	return 0
-}
-
-// ok 返回一个 ok 的状态
-func ok(_ *gin.Context) {
 }
 
 func main() {
